@@ -1,0 +1,6 @@
+rand_data, poredistribution = poredata.paperbased_radii_2d(
+            material, case, n_data, fig_plot=True)
+network.set_lattice_properties(G, case, rand_data['pore_frac'],
+                                   rand_data['r'], rand_data['L'],
+                                   poredistribution['porosity_total'],
+                                   material)

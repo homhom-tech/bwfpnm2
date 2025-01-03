@@ -1,0 +1,40 @@
+# -*- coding: utf-8 -*-
+r"""
+===============================================================================
+Submodule -- vapor_pressure
+===============================================================================
+
+Methods for predicing the vapor pressure of pure species
+
+"""
+import scipy as sp
+
+def pore(phase,Pc,**kwargs):
+    r"""
+    Vapour pressure at pore as a function of Pc = f(rh)
+
+    Parameters
+    ----------
+    A, B, C :  float, array_like
+            Antoine vapor pressure coefficients for pure compounds. Note that
+            these coefficients should be converted such that the Temperature
+            is in [K] and the vapor pressure is in [Pa].
+
+    [1] Antoine, C. (1888), Vapor Pressure: a new relationship between pressure 
+        and temperature, Comptes Rendus des Séances de l'Académie des Sciences 
+        (in French) 107: 681–684, 778–780, 836–837
+    
+    """
+    Pvsat = phase['pore.Pvsat']
+    T = phase['pore.temperature']
+    Rv = phase['pore.Rv']
+    rho_l = 998
+    down = rho_l*Rv*T
+    value = Pvsat*sp.exp(Pc/down)/down
+    return value
+
+def saturation(phase, **kwargs):
+    T = phase['pore.temperature'] - 273.15
+    value = 288.68*(1.098 + T/100)**8.02
+    return value
+

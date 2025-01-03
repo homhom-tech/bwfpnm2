@@ -1,0 +1,33 @@
+phase	water
+temperature	293.15	K	
+pressure	101325	Pa
+viscosity	None 
+density		None
+molar_density	None
+surface_tension	None
+vapour_pressure	None
+diffusivity	0.000000001	m2/s
+molecular_weight	0.01802	kg/mol
+contact_angle	0	Degree	
+critical_pressure	22100000	Pa
+critical_temperature 	647.1	K
+critical_volume		0.003106	kg/m3
+
+phase	vapour
+temperature	293.15	K
+pressure	101325	Pa
+univ_gas_constant	8.31447	J/mol.K
+gas_constant	461.4
+viscosity	0.000013	kg/ms
+density	0.0173	kg/m3
+molar_density	None
+Pvsat	2339	Pa
+diffusivity	None	m2/s	or 2.54e-5 		
+molecular_weight	0.01802	kg/mol
+contact_angle	0	Degree
+permeability	None	s
+
+phase	moisture
+temperature	293.15	K
+pressure	101325	Pa
+univ_gas_constant	8.31447	J/mol.K

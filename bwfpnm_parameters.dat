@@ -1,0 +1,33 @@
+phase	water 	Kang_default_props
+temperature	293.15	K	
+pressure	101325	Pa
+viscosity	1e-3	kg/m.s=Pa.s	None 
+density		1000	kg/m3		None
+molar_density	None	mol/m3
+surface_tension	0.072	N/m		None
+vapour_pressure	None	Pa
+diffusivity	0.000000001	m2/s
+molecular_weight	0.01802	kg/mol
+contact_angle	0	Degree	
+critical_pressure	22100000	Pa
+critical_temperature 	647.1	K
+critical_volume		0.003106	kg/m3
+
+phase	vapour
+temperature	293.15	K
+pressure	101325	Pa
+univ_gas_constant	8.31447	J/mol.K
+gas_constant	461.4	J/kg.K
+viscosity	0.000013	kg/ms
+density	0.0173	kg/m3
+molar_density	None	mol/m3
+Pvsat	2339	Pa
+diffusivity	2.54e-5	m2/s	or None #0.000000001
+molecular_weight	0.01802	kg/mol
+contact_angle	0	Degree
+permeability	None	s
+
+phase	moisture
+temperature	293.15	K
+pressure	101325	Pa
+univ_gas_constant	8.31447	J/mol.K

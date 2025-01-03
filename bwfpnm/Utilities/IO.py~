@@ -1,0 +1,411 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Feb 13 16:39:23 2015
+
+@author: islah
+"""
+#import numpy as sp
+import pickle
+import os
+from pandas import DataFrame, ExcelWriter
+import scipy as sp
+
+
+def _make_geoinput(pradius, pvolume, pshapefactor, pconnectivity, pclayvolume,
+                   tradius, tvolume, tlength, tshapefactor, tclayvolume,
+                   tporelengths, tlengthtotal):
+    r'''Collect all arguments into one dictionary'''
+
+    geoinput = {'pradius': pradius,
+                'pvolume': pvolume,
+                'pshapefactor': pshapefactor,
+                'pconnectivity': pconnectivity,
+                'pclayvolume': pclayvolume,
+                'tradius': tradius,
+                'tvolume': tvolume,
+                'tlength': tlength,
+                'tshapefactor': tshapefactor,
+                'tclayvolume': tclayvolume,
+                'tporelengths': tporelengths,
+                'tlengthtotal': tlengthtotal}
+    return geoinput
+
+
+def load_data(file_data, netgeoinput=True):
+    r'''Load a pickle data xxx.p file  and extract it into pores, throats,
+    bc_throats, and macro.
+
+    Arguments:
+    ---------
+    file_data:
+    netgeoinput:    if True --> return (netinput, geoinput)
+                    if False --> return (pores, throats, bc_throats, net[b'macro'])
+
+    Example:
+    ----------
+    file_data = 'OpenPNM-develop/OpenPNM/Bwf/test/smallBenth.p'
+    pores, throats, bc_throats, macro = load_data(file_data, False)
+    or
+    netinput, geoinput = load_data(file_data)
+    '''
+    with open(file_data, 'rb') as f:
+        net = pickle.load(f, encoding='bytes')
+
+    try:
+        pores = net['pore']
+        throats = net['throat']
+        bc_throats = net['bc_throat']
+    except:
+        pores = net[b'pore']
+        throats = net[b'throat']
+        bc_throats = net[b'bc_throat']
+
+    if netgeoinput:
+        netinput = {'coords': pores.pop('coords'),
+                    'conns': throats.pop('pores') - 1,
+                    'isInlet': pores.pop('isInlet'),
+                    'isOutlet': pores.pop('isOutlet')}
+
+        geoinput = _make_geoinput(pores.pop('radius'), pores.pop('volume'),
+                                  pores.pop('shapefactor'),
+                                  pores.pop('connectivity'),
+                                  pores.pop('clayvolume'),
+                                  throats.pop('radius'),
+                                  throats.pop('volume'),
+                                  throats.pop('length'),
+                                  throats.pop('shapefactor'),
+                                  throats.pop('clayvolume'),
+                                  throats.pop('porelengths'),
+                                  throats.pop('lengthtotal'))
+
+        return (netinput, geoinput, net['macro'])
+    else:
+        return (pores, throats, bc_throats, net['macro'])
+
+
+def _read_node1dat(filename=None):
+    if filename is None:
+        raise Exception('A file input is required!')
+
+    with open(filename, 'r') as infile:
+        # read first line
+        num_pores, Lx, Ly, Lz = [float(x) for x in infile.readline().split()]
+        num_pores = int(num_pores)
+        domain_size = [Lx, Ly, Lz]
+
+        index = sp.zeros(num_pores, dtype=int)
+        pore_coords = sp.zeros([num_pores, 3])
+        pore_connectivity = sp.zeros(num_pores, dtype=int)
+        isInlet = sp.zeros(num_pores, dtype=bool)
+        isOutlet = sp.zeros(num_pores, dtype=bool)
+
+        pore_neighbor = [0]*num_pores
+        pore_throat_neighbor = [0]*num_pores
+        for i, line in enumerate(infile):   # read rest of lines
+            # id, x, y, z, Z, idpore1, ..., idporen, isinlet, isoutlet,
+            # idthroat1, ..., idthroatn
+            array = line.split()
+            index[i] = int(array[0])
+            pore_coords[i] = [float(x) for x in array[1:4]]
+            pore_connectivity[i] = int(array[4])
+            neighbor_index = 4 + int(array[4]) + 1
+            pore_neighbor[i] = [int(x) for x in array[5:neighbor_index]]
+            isInlet[i] = int(array[neighbor_index])
+            isOutlet[i] = int(array[neighbor_index+1])
+            pore_throat_neighbor[i] = [int(x) for x in array[neighbor_index+2:]]
+
+    return (num_pores, domain_size, pore_coords, pore_connectivity,
+            pore_neighbor, isInlet, isOutlet, pore_throat_neighbor, index)
+
+
+def _read_node2dat(num_pores, filename=None):
+    if filename is None:
+        raise Exception('A file input is required!')
+
+    with open(filename, 'r') as infile:
+        pore_volume, pore_radius = sp.zeros(num_pores), sp.zeros(num_pores)
+        pore_shapefactor = sp.zeros(num_pores)
+        pore_clayvolume = sp.zeros(num_pores)
+        for i, line in enumerate(infile):   # read rest of lines
+            # id, volume, radius, shapefactor/clayvolume
+            array = [float(x) for x in line.split()]
+            pore_volume[i], pore_radius[i] = array[1:3]
+            pore_shapefactor[i], pore_clayvolume[i] = array[3:]
+
+    return (pore_volume, pore_radius, pore_shapefactor, pore_clayvolume)
+
+
+def _read_link1dat(filename=None):
+    if filename is None:
+        raise Exception('A file input is required!')
+
+    bound_pores = [-1, 0]       # -1: connected to inlet,   0: outlet
+    with open(filename, 'r') as infile:
+        # read first line
+        num_throats = int(infile.readline())
+
+        index = sp.zeros(num_throats, dtype=int)
+        conns = sp.zeros([num_throats, 2], dtype=int)
+        throat_radius = sp.zeros(num_throats)
+        throat_shapefactor = sp.zeros(num_throats)
+        throat_lengthtotal = sp.zeros(num_throats)
+
+        bc_index = sp.zeros(num_throats, dtype=int)
+        bc_conns = sp.zeros([num_throats, 2], dtype=int)
+        bc_throat_radius = sp.zeros(num_throats)
+        bc_throat_shapefactor = sp.zeros(num_throats)
+        bc_throat_lengthtotal = sp.zeros(num_throats)
+        i, j = 0, 0
+        for line in infile:   # read rest of lines
+            # Throat Index / Index of first connected pore/
+            # Index of second connected pore/ Radius/ Shapefactor/ Total length
+            array = line.split()
+            pore1, pore2 = [int(x) for x in array[1:3]]
+            if (pore1 not in bound_pores) and (pore2 not in bound_pores):
+                index[i] = int(array[0])
+                conns[i] = [pore1, pore2]
+                throat_radius[i] = float(array[3])
+                throat_shapefactor[i] = float(array[4])
+                throat_lengthtotal[i] = float(array[5])
+                i += 1
+            else:
+                bc_index[j] = int(array[0])
+                bc_conns[j] = [pore1, pore2]
+                bc_throat_radius[j] = float(array[3])
+                bc_throat_shapefactor[j] = float(array[4])
+                if pore1 == -1 or pore2 == -1:
+                    # need to give sign for pn.add_inoutlet() method
+                    bc_throat_lengthtotal[j] = -float(array[5])
+                else:
+                    bc_throat_lengthtotal[j] = float(array[5])
+                j += 1
+        num_throats = i
+        bc_num_throats = j
+
+    return (num_throats, conns[:i], throat_radius[:i], throat_shapefactor[:i],
+            throat_lengthtotal[:i], index[:i],
+            bc_num_throats, bc_conns[:j], bc_throat_radius[:j],
+            bc_throat_shapefactor[:j], bc_throat_lengthtotal[:j], bc_index[:j])
+
+
+def _read_link2dat(num_throats, bc_num_throats, filename=None):
+    ''' Length of the first pore / length of the second pore /
+    length of the throat / Volume / Clay volume'''
+    if filename is None:
+        raise Exception('A file input is required!')
+
+    bound_pores = [-1, 0]
+    with open(filename, 'r') as infile:
+        throat_porelengths = sp.zeros([num_throats, 2])
+        throat_length = sp.zeros(num_throats)
+        throat_volume = sp.zeros(num_throats)
+        throat_clayvolume = sp.zeros(num_throats)
+
+        bc_throat_porelengths = sp.zeros([bc_num_throats, 2])
+        bc_throat_length = sp.zeros(bc_num_throats)
+        bc_throat_volume = sp.zeros(bc_num_throats)
+        bc_throat_clayvolume = sp.zeros(bc_num_throats)
+        i, j = 0, 0
+        for line in infile:   # read rest of lines
+            array = line.split()
+            pore1, pore2 = [int(x) for x in array[1:3]]
+            if (pore1 not in bound_pores) and (pore2 not in bound_pores):
+                throat_porelengths[i] = [float(array[3]), float(array[4])]
+                throat_length[i] = float(array[5])
+                throat_volume[i] = float(array[6])
+                throat_clayvolume[i] = float(array[7])
+                i += 1
+            else:
+                bc_throat_porelengths[j] = [float(array[3]), float(array[4])]
+                bc_throat_length[j] = float(array[5])
+                bc_throat_volume[j] = float(array[6])
+                bc_throat_clayvolume[j] = float(array[7])
+                j += 1
+
+    return (throat_porelengths, throat_length,
+            throat_volume, throat_clayvolume,
+            bc_throat_porelengths, bc_throat_length,
+            bc_throat_volume, bc_throat_clayvolume)
+
+
+def _read_alldat(filelink='', filenames=None):
+    if filenames is None:
+        filenames = ['Berea_node1.dat', 'Berea_node2.dat', 'Berea_link1.dat',
+                     'Berea_link2.dat']
+
+    os.chdir(filelink)
+    node1 = _read_node1dat(filenames[0])
+    node2 = _read_node2dat(node1[0], filenames[1])
+    link1 = _read_link1dat(filenames[2])
+    link2 = _read_link2dat(link1[0], link1[6], filenames[3])
+#    link1: 0-num_throats,  1-conns[:i], 2-throat_radius[:i],
+#           3-throat_shapefactor[:i], 4-throat_lengthtotal[:i], 5-index[:i],
+#           6-bc_num_throats, 7-bc_conns[:j], 8-bc_throat_radius[:j],
+#           9-bc_throat_shapefactor[:j], 10-bc_throat_lengthtotal[:j],
+#           11-bc_index[:j]
+
+#    link2: 0-throat_porelengths,       1-throat_length,
+#           2-throat_volume,            3-throat_clayvolume,
+#           4-bc_throat_porelengths,    5-bc_throat_length,
+#           6-bc_throat_volume,         7-bc_throat_clayvolume
+
+    macro = {'size': node1[1]}
+
+    pore = {'numbers': node1[0],
+            'coords': node1[2],
+            'connectivity': node1[3],
+            'pore_neighbor': node1[4],
+            'isInlet': node1[5],
+            'isOutlet': node1[6],
+            'throat_neighbor': node1[7],
+            'index': node1[8],
+            'volume': node2[0],
+            'radius': node2[1],
+            'shapefactor': node2[2],
+            'clayvolume': node2[3]}
+
+    throat = {'numbers': link1[0],
+              'pores': link1[1],
+              'radius': link1[2],
+              'shapefactor': link1[3],
+              'lengthtotal': link1[4],
+              'index': link1[5],
+              'porelengths': link2[0],
+              'length': link2[1],
+              'volume': link2[2],
+              'clayvolume': link2[3]}
+
+    bc_throat = {'numbers': link1[6],
+                 'pores': link1[7],
+                 'radius': link1[8],
+                 'shapefactor': link1[9],
+                 'lengthtotal': link1[10],
+                 'index': link1[11],
+                 'porelengths': link2[4],
+                 'length': link2[5],
+                 'volume': link2[6],
+                 'clayvolume': link2[7]}
+
+    return (macro, pore, throat, bc_throat)
+
+
+def _save_pickle(filename='net.p', **kwargs):
+    with open(filename, 'wb') as outfile:
+        pickle.dump(kwargs, outfile)
+
+
+def make_data_p(folder='SmallNetworkModel_PBModeled_Bentheimer_ECore/',
+                name='Bentheimer1_smallNetwork',
+                outfile=None):
+
+    if outfile is None:
+        outfile = name+'.p'
+
+    files = [name+'_node1.dat', name+'_node2.dat',
+             name+'_link1.dat', name+'_link2.dat']
+    macro, pore, throat, bc_throat = _read_alldat(filelink=folder,
+                                                  filenames=files)
+    _save_pickle(filename=outfile, macro=macro, pore=pore, throat=throat,
+                 bc_throat=bc_throat)
+
+
+def _flow_pandas(obj):
+    d = {}
+    n = sp.size(obj._Pc)
+    d['pc [Pa]'] = obj._Pc
+    d['log(pc)'] = obj._log_Pc
+    d['saturation [-]'] = obj._saturation
+    d['moisture content [kg/m3]'] = obj._moisturecontent
+
+    try:
+        if sp.size(obj._saturation_surf) == n:
+            d['saturation surface [-]'] = obj._saturation_surf
+        else:
+            d['saturation surface [-]'] = sp.zeros(n)
+    except:
+        d['saturation surface [-]'] = sp.zeros(n)
+
+    try:
+        if sp.size(obj._saturation_vapour) == n:
+            d['saturation vapour [-]'] = obj._saturation_vapour
+        else:
+            d['saturation vapour [-]'] = sp.zeros(n)
+    except:
+        d['saturation vapour [-]'] = sp.zeros(n)
+
+    try:
+        if sp.size(obj._permeability) == n:
+            d['permeability effective [s]'] = obj._permeability
+        else:
+            d['permeability effective [s]'] = sp.zeros(n)
+    except:
+        d['permeability effective [s]'] = sp.zeros(n)
+    try:
+        d['permeability relative [-]'] = obj._rel_permeability
+    except:
+        d['permeability relative [-]'] = sp.zeros(n)
+    try:
+        d['permeability absolute [m2]'] = obj._abs_m2_permeability
+    except:
+        d['permeability absolute [m2]'] = sp.zeros(n)
+
+    try:
+        d['permeability absolute [mD]'] = obj._abs_mD_permeability
+    except:
+        d['permeability absolute [mD]'] = sp.zeros(n)
+
+    try:
+        d['conductance effective [sm]'] = obj._conductance
+    except:
+        d['conductance effective [sm]'] = sp.zeros(n)
+
+    df = DataFrame(data=d)
+    return df
+
+
+def _data_pandas(data):
+    r'''
+    Data argument must be a dictionary with an array/list value per each key.
+    The arrays all must have the same size.
+    '''
+    d = {}
+    for key, val in data.items():
+        d[key] = val
+
+    df = DataFrame(data=d)
+    return df
+
+
+def save_flow_csv(obj, filename=''):
+    if filename == '':
+        filename = obj.name + '.csv'
+    else:
+        filename = filename.split('.')[0] + '.csv'
+
+    df = _flow_pandas(obj)
+    df.to_csv(filename, sep="\t")
+
+
+def save_data_csv(data, filename=''):
+    r'''
+    data must be a dictionary with name and its value
+    '''
+    if filename == '':
+        filename =  'data.csv'
+    else:
+        filename = filename.split('.')[0] + '.csv'
+
+    df = _data_pandas(data)
+    df.to_csv(filename, sep="\t")
+
+#def save_flow_xls(obj, filename=''):
+#    if filename == '':
+#        filename = obj.name + '.xls'
+#    else:
+#        filename = filename.split('.')[0] + '.xls'
+#
+#    df_out = _output_pandas(obj)
+#    writer = ExcelWriter(filename)
+#
+#    df_out.to_excel(writer, sheet_name='flow', engine='xlwt')
+#    writer.save()

@@ -1,0 +1,39 @@
+# -*- coding: utf-8 -*-
+
+from OpenPNM.Geometry import GenericGeometry
+import scipy as sp
+
+class Test_PoreThroat(GenericGeometry):
+    r"""
+    Default geometry for Pore-throat model with given geometry data.
+
+    Parameters
+    ----------
+    name : string
+        The name of the object, which is also used as the label where this
+        geometry is defined.
+
+    """
+
+    def __init__(self, **kwargs):
+        r"""
+        Initialize
+        """
+        super(Test_PoreThroat, self).__init__(**kwargs)
+        self._generate()
+
+    def _generate(self, **kwargs):
+        self['pore.diameter'] = 2e-5
+        self['pore.area'] = sp.pi*self['pore.diameter']**2/4
+        self['pore.length'] = 2e-5
+        self['pore.volume'] = self['pore.length']*self['pore.area']
+        self['throat.diameter'] = 1e-6
+        self['throat.length'] = 1e-4
+        self['throat.area'] = sp.pi*self['throat.diameter']**2/4
+        self['throat.volume'] = self['throat.length']*self['throat.area']
+
+
+if __name__ == '__main__':
+    #Run doc tests
+    import doctest
+    doctest.testmod(verbose=True)

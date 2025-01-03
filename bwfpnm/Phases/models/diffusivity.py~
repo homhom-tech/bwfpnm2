@@ -1,0 +1,29 @@
+r"""
+===============================================================================
+Submodule -- diffusivity
+===============================================================================
+
+"""
+#import scipy as sp
+
+def vapour_air(phase,MA,MB,vA,vB,**kwargs): 
+    r"""
+    Uses Fuller model to estimate diffusion coefficient for gases from first 
+    principles at conditions of interest
+
+    Parameters
+    ----------
+    MA : float, array_like
+        Molecular weight of component A [kg/mol]
+    MB : float, array_like
+        Molecular weight of component B [kg/mol]
+    vA:  float, array_like
+        Sum of atomic diffusion volumes for component A
+    vB:  float, array_like
+        Sum of atomic diffusion volumes for component B
+    """
+
+    T = phase['pore.temperature']
+    value = 2.3e-5*(T/273.15)**1.81	
+    return value
+    

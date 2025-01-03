@@ -1,0 +1,11 @@
+Metadata-Version: 1.1
+Name: bwfpnm
+Version: 1.0b0
+Summary: An object-oriented code for simulating pore network model specifically for porous building materials using OpenPNM framework.
+Home-page: https://github.com/islah/BwfPNM
+Author: BwfPNM Team: Islah
+Author-email: m.islah22@gmail.com
+License: UNKNOWN
+Download-URL: https://github.com/islah/BwfPNM/
+Description: UNKNOWN
+Platform: UNKNOWN
