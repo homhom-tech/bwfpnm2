@@ -38,7 +38,7 @@ If you encounter an error, please do the detail steps instead.
 
     First, try the following:
 
-    `conda install pyamg`
+    `conda install pyamg`,
     `conda install -c auto pyswarm`
 
     Use pip if the above doesn't work
