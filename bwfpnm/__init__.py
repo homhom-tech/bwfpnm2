@@ -7,7 +7,7 @@ __version__ = '1.0'
 
 __requires__ = ['scipy', 'OpenPNM']
 
-import OpenPNM
+import openpnm
 
 from . import Base
 from . import Geometry
