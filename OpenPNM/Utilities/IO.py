@@ -190,7 +190,7 @@ class VTK():
         dtype = element.get("type")
         array = _np.fromstring(string, sep='\t')
         array = array.astype(dtype)
-        if n is not 1:
+        if n != 1:
             array = array.reshape(array.size//n, n)
         return array
 
