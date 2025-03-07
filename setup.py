@@ -12,7 +12,7 @@ if sp.__version__ < '0.14.0':
 try:
     import OpenPNM as pnm
 except:
-    #raise Exception('bwfpnm requires OpenPNM version 1.1-beta or greater')
+    raise Exception('bwfpnm requires OpenPNM version 1.1-beta or greater')
 
 try:
     from setuptools import setup
