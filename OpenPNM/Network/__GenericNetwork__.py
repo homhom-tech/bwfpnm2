@@ -8,6 +8,7 @@ GenericNetwork: Abstract class to construct pore networks
 import scipy as sp
 import scipy.sparse as sprs
 import scipy.spatial as sptl
+import numpy as np
 import OpenPNM.Utilities.misc as misc
 from OpenPNM.Utilities import topology
 from OpenPNM.Base import Core, Controller, Tools, logging
@@ -807,7 +808,7 @@ class GenericNetwork(Core):
                          apply_label=apply_label, mode=mode)
     clone_pores.__doc__ = topo.clone_pores.__doc__
 
-    def stitch(self, donor, P_donor, P_network, method, len_max=sp.inf,
+    def stitch(self, donor, P_donor, P_network, method, len_max=np.inf,
                label_suffix=''):
         topo.stitch(network=self, donor=donor, P_donor=P_donor,
                     P_network=P_network, method=method, len_max=len_max,
