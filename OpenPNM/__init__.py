@@ -31,7 +31,7 @@ Subpackages
 
 Import
 ------
->>> import OpenPNM
+>>> import openpnm
 
 """
 import scipy as sp
